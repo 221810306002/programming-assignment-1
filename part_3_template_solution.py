@@ -1,33 +1,19 @@
 import numpy as np
 from numpy.typing import NDArray
 from typing import Any
-from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import train_test_split
+
+from sklearn.metrics import accuracy_score, top_k_accuracy_score
+from sklearn.linear_model import LogisticRegression
+
 import utils as u
+
 import new_utils as nu
+from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
-from sklearn.model_selection import StratifiedKFold, cross_validate
-from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score, confusion_matrix
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.metrics import make_scorer, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.utils.class_weight import compute_class_weight
 
-import seaborn as sns
-
-from sklearn.svm import SVC
-from sklearn.model_selection import StratifiedKFold, cross_validate
-from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score, confusion_matrix
-import matplotlib.pyplot as plt
-import numpy as np
-
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import ShuffleSplit, cross_validate, train_test_split
-from sklearn.metrics import accuracy_score
-import numpy as np
-
-from sklearn.metrics import top_k_accuracy_score
 
 """
    In the first two set of tasks, we will narrowly focus on accuracy - 
@@ -66,8 +52,8 @@ class Section3:
         print(f"{np.sum(counts)=}")
 
         return {
-            "class_counts": {}, 
-            "num_classes": 0,  
+            "class_counts": {},  # Replace with actual class counts
+            "num_classes": 0,  # Replace with the actual number of classes
         }
 
     # --------------------------------------------------------------------------
@@ -92,8 +78,38 @@ class Section3:
         NDArray[np.int32],
     ]:
         """ """
+        # Enter code and return the `answer`` dictionary
 
         answer = {}
+        
+        clf = LogisticRegression(max_iter=300,random_state=self.seed)
+        clf.fit(Xtrain,ytrain)
+        k = [1, 2, 3, 4, 5]
+
+        train_accuracies = []
+        test_accuracies = []
+
+        for likely_outcomes in k:
+            res ={}
+            train_pred = clf.predict_proba(Xtrain)
+            train_top_k_accuracy = top_k_accuracy_score(ytrain, train_pred, k=likely_outcomes)
+   
+            test_pred = clf.predict_proba(Xtest)
+            test_top_k_accuracy = top_k_accuracy_score(ytest,test_pred , k=likely_outcomes)
+    
+            train_accuracies.append((likely_outcomes, train_top_k_accuracy))
+            test_accuracies.append((likely_outcomes, test_top_k_accuracy))
+            res['score_train'] = train_top_k_accuracy
+            res['score_test'] = test_top_k_accuracy
+            answer[likely_outcomes]=res
+            
+      
+        answer['clf']= clf
+        answer['plot_k_vs_score_train'] = train_accuracies
+        answer['plot_k_vs_score_test'] = test_accuracies
+        answer['text_rate_accuracy_change'] = "The model continuously shows improved accuracy as the value of k increases for the testing data, suggesting that it is becoming more adept at predicting the top-k classes."
+        answer['text_is_topk_useful_and_why'] = "As a useful tool for evaluating the model's performance, the top-k accuracy metric assesses the model's capacity to produce accurate predictions over a larger range of possible classes. This statistic provides a more thorough understanding of the model's ability to capture relevant patterns than do more conventional accuracy metrics."
+    
 
         """
         # `answer` is a dictionary with the following keys:
@@ -114,52 +130,7 @@ class Section3:
         - "score_train" : the topk accuracy score for the training set
         - "score_test" : the topk accuracy score for the testing set
         """
-        answer = {
-    "clf": "Logistic Regression",  
-    "plot_k_vs_score_train": [],
-    "plot_k_vs_score_test": [],
-}
-        clf_lr = LogisticRegression(max_iter=300, multi_class='ovr', random_state=self.seed)
 
-        clf_lr.fit(Xtrain, ytrain)
-
-        k_values = [1, 2, 3, 4, 5]
-        scores_train = []
-        scores_test = []
-
-        for k in k_values:
-            score_train = top_k_accuracy_score(ytrain, clf_lr.predict_proba(Xtrain), k=k)
-            score_test = top_k_accuracy_score(ytest, clf_lr.predict_proba(Xtest), k=k)
-            scores_train.append((k, score_train))
-            scores_test.append((k, score_test))
-
-        plt.figure(figsize=(10, 6))
-        plt.plot(*zip(*scores_train), marker='o', linestyle='-', color='blue', label='Training Data')
-        plt.plot(*zip(*scores_test), marker='s', linestyle='--', color='red', label='Testing Data')
-        plt.xlabel('k')
-        plt.ylabel('Top-k Accuracy Score')
-        plt.title('Top-k Accuracy Score vs. k')
-        plt.xticks(k_values)
-        plt.legend()
-        plt.grid(True)
-        plt.show()
-
-        rate_of_accuracy_change_test = "To be commented"
-        is_topk_useful_and_why = "To be commented"
-
-        answer = {
-            "clf": "clf_lr",
-            "plot_k_vs_score_train": scores_train,
-            "plot_k_vs_score_test": scores_test,
-            "text_rate_accuracy_change": rate_of_accuracy_change_test,
-            "text_is_topk_useful_and_why": is_topk_useful_and_why
-        }
-
-        for k, score_train, score_test in zip(k_values, [s[1] for s in scores_train], [s[1] for s in scores_test]):
-            answer[k] = {
-                "score_train": score_train,
-                "score_test": score_test
-            }
         return answer, Xtrain, ytrain, Xtest, ytest
 
     # --------------------------------------------------------------------------
@@ -181,23 +152,42 @@ class Section3:
         NDArray[np.int32],
     ]:
         """"""
+        # Enter your code and fill the `answer` dictionary
         answer = {}
+        
+        Xtrain, ytrain = u.filter_out_7_9s(X, y)
+        Xtest, ytest = u.filter_out_7_9s(Xtest, ytest)
+        
+        nine_indices = np.where(ytrain == 9)[0]
 
-        Xtrain, ytrain = nu.filter_and_modify_7_9s(X, y)
-        Xtest, ytest = nu.filter_and_modify_7_9s(Xtest, ytest)
-        Xtrain = nu.scale_data(Xtrain)
-        Xtest = nu.scale_data(Xtest)
-        ytrain = ytrain.astype(int)
-        ytest = ytest.astype(int)
+        num_instances_to_remove = int(len(nine_indices) * 0.9)
 
-        answer = {
-                "length_Xtrain": len(Xtrain),
-                "length_Xtest": len(Xtest),
-                "length_ytrain": len(ytrain),
-                "length_ytest": len(ytest),
-                "max_Xtrain": np.max(Xtrain),
-                "max_Xtest": np.max(Xtest)
-            }
+        indices_to_remove = np.random.choice(nine_indices, num_instances_to_remove, replace=False)
+        X = np.delete(Xtrain, indices_to_remove, axis=0)
+        y = np.delete(ytrain, indices_to_remove, axis=0)
+        
+        y = np.where(y == 7, 0, np.where(y == 9, 1, y))
+        
+        nine_indices_test = np.where(ytest == 9)[0]
+        num_instances_to_remove_test = int(len(nine_indices_test) * 0.9)
+        indices_to_remove_test = np.random.choice(nine_indices_test, num_instances_to_remove_test, replace=False)
+
+        
+        Xtest = np.delete(Xtest, indices_to_remove_test, axis=0)
+        ytest = np.delete(ytest, indices_to_remove_test, axis=0)
+        
+        ytest = np.where(ytest == 7, 0, np.where(ytest == 9, 1, ytest))
+        
+        answer["length_Xtrain"] = len(X) 
+        answer["length_Xtest"] = len(Xtest)
+        answer["length_ytrain"] = len(y)
+        answer["length_ytest"] = len(ytest)
+        answer["max_Xtrain"] = X.max()
+        answer["max_Xtest"] = X.max()
+
+
+
+        # Answer is a dictionary with the same keys as part 1.B
 
         return answer, X, y, Xtest, ytest
 
@@ -220,63 +210,50 @@ class Section3:
     ) -> dict[str, Any]:
         """"""
 
+        # Enter your code and fill the `answer` dictionary
         answer = {}
-        clf_svc = SVC(random_state=self.seed)
-
-        cv_stratified = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.seed)
+        
+        SV_clf=SVC(random_state=self.seed)
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.seed)
 
         scoring = {
-            'accuracy': make_scorer(accuracy_score),
-            'precision': make_scorer(precision_score, average='macro'),
-            'recall': make_scorer(recall_score, average='macro'),
-            'f1': make_scorer(f1_score, average='macro')
-        }
+                   'f1': make_scorer(f1_score, average='macro'),
+                   'precision': make_scorer(precision_score, average='macro'),
+                   'recall': make_scorer(recall_score, average='macro'),
+                   'accuracy':'accuracy'
+                  }
 
-        cv_results_svc = cross_validate(clf_svc, X, y, cv=cv_stratified, scoring=scoring)
+        scores_cv = {metric: cross_val_score(SV_clf, X, y, scoring=scoring[metric], cv=cv)
+          for metric in scoring}
 
-        scores = {
-            "mean_accuracy": cv_results_svc['test_accuracy'].mean(),
-            "std_accuracy": cv_results_svc['test_accuracy'].std(),
-            "mean_precision": cv_results_svc['test_precision'].mean(),
-            "std_precision": cv_results_svc['test_precision'].std(),
-            "mean_recall": cv_results_svc['test_recall'].mean(),
-            "std_recall": cv_results_svc['test_recall'].std(),
-            "mean_f1": cv_results_svc['test_f1'].mean(),
-            "std_f1": cv_results_svc['test_f1'].std()
-        }
+        scores = {}
+        scores['mean_accuracy'] = np.mean(scores_cv['accuracy'])
+        scores['mean_recall']   = np.mean(scores_cv['recall'])
+        scores['mean_precision']= np.mean(scores_cv['precision'])
+        scores['mean_f1']       = np.mean(scores_cv['f1'])
+        scores['std_accuracy']  = np.std(scores_cv['accuracy'])
+        scores['std_recall']    = np.std(scores_cv['recall'])
+        scores['std_precision'] = np.std(scores_cv['precision'])
+        scores['std_f1']        = np.std(scores_cv['f1'])
 
-        is_precision_higher_than_recall = scores["mean_precision"] > scores["mean_recall"]
+        SV_clf.fit(X,y)
+        y_pred_train=SV_clf.predict(X)
+        y_pred_test=SV_clf.predict(Xtest)
 
-        explanation = "Precision is higher than recall, indicating that when the classifier predicts a positive class, it is highly likely correct. However, it may miss some positive cases (lower recall)." if is_precision_higher_than_recall else "Recall is higher than precision, indicating the classifier has a lower threshold to predict positive classes, potentially at the cost of accuracy (higher false positive rate)."
+        answer["scores"]=scores
 
-        clf_svc.fit(X, y)
+        answer['cv']=cv
+        answer['clf']=SV_clf
 
-        confusion_matrix_train = confusion_matrix(y, clf_svc.predict(X))
-        confusion_matrix_test = confusion_matrix(ytest, clf_svc.predict(Xtest))
+        if scores_cv['precision'].mean() > scores_cv['recall'].mean():
+            answer["is_precision_higher_than_recall"]= True
+        else:
+            answer["is_precision_higher_than_recall"]= False
 
-        answer = {
-            "scores": scores,
-            "cv": "StratifiedKFold",
-            "clf": "SVC",
-            "is_precision_higher_than_recall": is_precision_higher_than_recall,
-            "explain_is_precision_higher_than_recall": explanation,
-            "confusion_matrix_train": confusion_matrix_train.tolist(), # for JSON compatibility
-            "confusion_matrix_test": confusion_matrix_test.tolist() # for JSON compatibility
-        }
+        answer['explain_is_precision_higher_than_recall']='Yes, Precision being higher than recall signifies that the classifier is prone to fewer false positive errors compared to its effectiveness in accurately identifying all positive instances'
 
-        plt.figure(figsize=(10, 7))
-        sns.heatmap(confusion_matrix_train, annot=True, fmt='g', cmap='viridis')
-        plt.title('Confusion Matrix for Training Data')
-        plt.xlabel('Predicted Labels')
-        plt.ylabel('True Labels')
-        plt.show()
-
-        plt.figure(figsize=(10, 7))
-        sns.heatmap(confusion_matrix_test, annot=True, fmt='g', cmap='viridis')
-        plt.title('Confusion Matrix for Testing Data')
-        plt.xlabel('Predicted Labels')
-        plt.ylabel('True Labels')
-        plt.show()
+        answer['confusion_matrix_train'] = confusion_matrix(y,y_pred_train)
+        answer['confusion_matrix_test']  = confusion_matrix(ytest,y_pred_test)
 
         """
         Answer is a dictionary with the following keys: 
@@ -316,63 +293,53 @@ class Section3:
         """"""
         # Enter your code and fill the `answer` dictionary
         answer = {}
-        class_labels = np.unique(y)
-        class_weights = compute_class_weight(class_weight='balanced', classes=class_labels, y=y)
-        class_weights_dict = dict(zip(class_labels, class_weights))
+        class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y), y=y)
+        SV_clf_weighted = SVC(random_state=self.seed, class_weight={0: class_weights[0], 1: class_weights[1]})
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-        # Initialize SVC with computed class weights
-        clf_svc_weighted = SVC(random_state=42, class_weight=class_weights_dict)
-
-        # Define scoring metrics
-        scoring_metrics = {
-            'accuracy': make_scorer(accuracy_score),
+       
+        scoring = {
+            'f1': make_scorer(f1_score, average='macro'),
             'precision': make_scorer(precision_score, average='macro'),
             'recall': make_scorer(recall_score, average='macro'),
-            'f1': make_scorer(f1_score, average='macro')
+            'accuracy': 'accuracy'
         }
 
-        # Perform stratified cross-validation
-        cv_stratified = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-        cv_results = cross_validate(clf_svc_weighted, X, y, cv=cv_stratified, scoring=scoring_metrics)
+        
+        scores_cv_weighted = {metric: cross_val_score(SV_clf_weighted, X, y, scoring=scoring[metric], cv=cv)
+                              for metric in scoring}
 
-        # Extract mean and std of the scores
-        scores = {
-            'mean_accuracy': np.mean(cv_results['test_accuracy']),
-            'std_accuracy': np.std(cv_results['test_accuracy']),
-            'mean_precision': np.mean(cv_results['test_precision']),
-            'std_precision': np.std(cv_results['test_precision']),
-            'mean_recall': np.mean(cv_results['test_recall']),
-            'std_recall': np.std(cv_results['test_recall']),
-            'mean_f1': np.mean(cv_results['test_f1']),
-            'std_f1': np.std(cv_results['test_f1']),
-        }
+      
+        scores_weighted = {}
+        scores_weighted['mean_accuracy'] = np.mean(scores_cv_weighted['accuracy'])
+        scores_weighted['mean_recall'] = np.mean(scores_cv_weighted['recall'])
+        scores_weighted['mean_precision'] = np.mean(scores_cv_weighted['precision'])
+        scores_weighted['mean_f1'] = np.mean(scores_cv_weighted['f1'])
+        scores_weighted['std_accuracy'] = np.std(scores_cv_weighted['accuracy'])
+        scores_weighted['std_recall'] = np.std(scores_cv_weighted['recall'])
+        scores_weighted['std_precision'] = np.std(scores_cv_weighted['precision'])
+        scores_weighted['std_f1'] = np.std(scores_cv_weighted['f1'])
 
-        clf_svc_weighted.fit(X, y)
+        
+        SV_clf_weighted.fit(X, y)
 
-        confusion_matrix_train = confusion_matrix(y, clf_svc_weighted.predict(X))
-        confusion_matrix_test = confusion_matrix(ytest, clf_svc_weighted.predict(Xtest))
+        
+        y_pred_train_weighted = SV_clf_weighted.predict(X)
+        y_pred_test_weighted = SV_clf_weighted.predict(Xtest)
 
-        explain_purpose_of_class_weights = "Class weights adjust the importance of each class during training, helping to address imbalances by penalizing mistakes on underrepresented classes more."
-        explain_performance_difference = "Using class weights can improve recall for minority classes, potentially at the cost of overall accuracy or precision, as the model may focus more on correctly predicting underrepresented classes."
+        
+        confusion_matrix_train_weighted = confusion_matrix(y, y_pred_train_weighted)
+        confusion_matrix_test_weighted = confusion_matrix(ytest, y_pred_test_weighted)
 
-        answer = {
-            "scores": scores,
-            "cv": "StratifiedKFold",
-            "clf": "SVC (Weighted)",
-            "class_weights": class_weights_dict,
-            "confusion_matrix_train": confusion_matrix_train.tolist(),  # for JSON compatibility
-            "confusion_matrix_test": confusion_matrix_test.tolist(),  # for JSON compatibility
-            "explain_purpose_of_class_weights": explain_purpose_of_class_weights,
-            "explain_performance_difference": explain_performance_difference
-        }
+        answer["scores"] = scores_weighted
+        answer['cv'] = cv
+        answer['clf'] = SV_clf_weighted
+        answer['class_weights'] = class_weights
+        answer['confusion_matrix_train'] = confusion_matrix_train_weighted
+        answer['confusion_matrix_test'] = confusion_matrix_test_weighted
+        answer['explain_purpose_of_class_weights'] = "Class weights are used to lessen the impact of class imbalance by penalizing misclassifications of the minority class more severely."
+        answer['explain_performance_difference'] = "The difference in performance that can be attributable to class weights suggests that the model is more capable of generalizing to the minority class, which leads to more balanced performance measures in all classes."
 
-  
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(confusion_matrix_train, annot=True, fmt='d', cmap='Blues')
-        plt.title('Confusion Matrix for Training Data')
-        plt.xlabel('Predicted Labels')
-        plt.ylabel('Actual Labels')
-        plt.show()
 
         """
         Answer is a dictionary with the following keys: 
